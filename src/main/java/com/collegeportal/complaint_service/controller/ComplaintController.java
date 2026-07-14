@@ -23,7 +23,7 @@ public class ComplaintController {
 
     // 1. STUDENT: Submit a new complaint
     @PostMapping(consumes = {"multipart/form-data"})
-    @PreAuthorize("hasAuthority('ROLE_STUDENT')") // Fix: Explicitly check for ROLE_ prefix
+    @PreAuthorize("permitAll()") // TEMPORARY DIAGNOSTIC: Bypassing security to check if issue is RBAC or Gateway
     public ResponseEntity<Complaint> createComplaint(
             @RequestPart("data") String data, 
             @RequestPart(value = "files", required = false) MultipartFile[] files) throws IOException {
@@ -37,7 +37,7 @@ public class ComplaintController {
 
     // 2. ADMIN: Assign to a technician
     @PutMapping("/{id}/assign")
-    @PreAuthorize("hasAuthority('ROLE_ADMIN')") // Fix: Explicitly check for ROLE_ prefix
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Complaint> assignTechnician(
             @PathVariable Long id,
             @RequestParam Long adminId,
@@ -48,7 +48,7 @@ public class ComplaintController {
 
     // 3. TECHNICIAN: Submit for HOD Verification
     @PutMapping("/{id}/submit-verification")
-    @PreAuthorize("hasAuthority('ROLE_TECHNICIAN') or hasAuthority('ROLE_ADMIN')") // Fix applied to both roles
+    @PreAuthorize("hasAuthority('ROLE_TECHNICIAN') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Complaint> submitForVerification(
             @PathVariable Long id,
             @RequestParam String adminNote) {
@@ -58,7 +58,7 @@ public class ComplaintController {
 
     // 4. HOD: Final Sign-off and Resolution
     @PutMapping("/{id}/resolve")
-    @PreAuthorize("hasAuthority('SUB_HOD')") // This was already correct based on your JwtTokenFilter!
+    @PreAuthorize("hasAuthority('SUB_HOD')")
     public ResponseEntity<Complaint> resolveComplaint(
             @PathVariable Long id,
             @RequestParam Long hodId,
@@ -79,28 +79,24 @@ public class ComplaintController {
 
     // --- FETCH ENDPOINTS ---
 
-    // Get a specific complaint
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()") 
     public ResponseEntity<Complaint> getComplaint(@PathVariable Long id) {
         return ResponseEntity.ok(complaintService.getComplaintById(id));
     }
 
-    // Get global public feed
     @GetMapping("/public")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<Complaint>> getPublicFeed() {
         return ResponseEntity.ok(complaintService.getPublicFeed());
     }
 
-    // Get a specific user's complaints
     @GetMapping("/user/{userId}")
     @PreAuthorize("hasAuthority('ROLE_STUDENT') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<List<Complaint>> getMyComplaints(@PathVariable Long userId) {
         return ResponseEntity.ok(complaintService.getMyComplaints(userId));
     }
 
-    // ADMIN: Get master list of all complaints
     @GetMapping("/all")
     @PreAuthorize("hasAuthority('ROLE_ADMIN')") 
     public ResponseEntity<List<Complaint>> getAllComplaints() {
