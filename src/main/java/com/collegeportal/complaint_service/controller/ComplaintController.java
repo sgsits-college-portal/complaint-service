@@ -22,7 +22,7 @@ public class ComplaintController {
     private final ComplaintService complaintService;
 
     // 1. STUDENT: Submit a new complaint
-    @PostMapping(consumes = {"multipart/form-data"})
+    @PostMapping(value = {"", "/"}, consumes = {"multipart/form-data"}) // THE FIX: Makes the endpoint slash-agnostic
     @PreAuthorize("hasAuthority('ROLE_STUDENT')") 
     public ResponseEntity<Complaint> createComplaint(
             @RequestPart("data") String data, 
