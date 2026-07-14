@@ -23,7 +23,7 @@ public class ComplaintController {
 
     // 1. STUDENT: Submit a new complaint
     @PostMapping(consumes = {"multipart/form-data"})
-    @PreAuthorize("permitAll()") // TEMPORARY DIAGNOSTIC: Bypassing security to check if issue is RBAC or Gateway
+    @PreAuthorize("hasAuthority('ROLE_STUDENT')") 
     public ResponseEntity<Complaint> createComplaint(
             @RequestPart("data") String data, 
             @RequestPart(value = "files", required = false) MultipartFile[] files) throws IOException {
