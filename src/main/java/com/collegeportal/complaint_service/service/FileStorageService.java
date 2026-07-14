@@ -1,42 +1,53 @@
 package com.collegeportal.complaint_service.service;
 
-import com.collegeportal.complaint_service.config.FileStorageProperties;
+import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.util.UUID;
+import java.util.Map;
 
 @Service
 public class FileStorageService {
 
-    private final Path fileStorageLocation;
+    private final Cloudinary cloudinary;
 
-    public FileStorageService(FileStorageProperties fileStorageProperties) {
-        this.fileStorageLocation = Paths.get(fileStorageProperties.getUploadDir())
-                .toAbsolutePath().normalize();
+    // Constructor injection pulling from your application.properties
+    public FileStorageService(
+            @Value("${cloudinary.cloud-name}") String cloudName,
+            @Value("${cloudinary.api-key}") String apiKey,
+            @Value("${cloudinary.api-secret}") String apiSecret) {
+        
+        this.cloudinary = new Cloudinary(ObjectUtils.asMap(
+                "cloud_name", cloudName,
+                "api_key", apiKey,
+                "api_secret", apiSecret,
+                "secure", true // Forces HTTPS for secure image delivery
+        ));
+    }
+
+    // A clean Java Record to return both the URL and the ID simultaneously
+    public record CloudUploadResult(String url, String cloudId) {}
+
+    public CloudUploadResult uploadFile(MultipartFile file) throws IOException {
+        // 1. Upload the raw bytes to Cloudinary
+        Map uploadResult = cloudinary.uploader().upload(file.getBytes(), ObjectUtils.emptyMap());
+        
+        // 2. Extract the secure viewing URL and the unique deletion ID
+        String url = uploadResult.get("secure_url").toString();
+        String cloudId = uploadResult.get("public_id").toString(); 
+        
+        return new CloudUploadResult(url, cloudId);
+    }
+
+    public void deleteFile(String cloudId) {
         try {
-            Files.createDirectories(this.fileStorageLocation);
-        } catch (Exception ex) {
-            throw new RuntimeException("Could not create the directory where the uploaded files will be stored.", ex);
+            // 3. Destroy the file on Cloudinary using the unique ID
+            cloudinary.uploader().destroy(cloudId, ObjectUtils.emptyMap());
+        } catch (IOException e) {
+            System.err.println("Failed to delete image from Cloudinary: " + cloudId);
         }
     }
-
-    public String saveImage(MultipartFile file) throws IOException {
-        if (file.isEmpty()) {
-            throw new IllegalArgumentException("Cannot upload empty file");
-        }
-
-        String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
-        String uniqueFileName = UUID.randomUUID().toString() + "_" + originalFileName;
-        Path filePath = this.fileStorageLocation.resolve(uniqueFileName);
-        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-        return "/images/" + uniqueFileName;
-    }
-}       
+}

@@ -29,18 +29,24 @@ public class ComplaintService {
         complaint.setTitle(request.getTitle());
         complaint.setDescription(request.getDescription());
         complaint.setCategory(request.getCategory());
-        complaint.setPriority(request.getPriority());
         complaint.setLocation(request.getLocation());
+        
+        // Convert the String from the DTO into our strict Java Enum, forcing uppercase to prevent crashes
+        complaint.setPriority(Complaint.Priority.valueOf(request.getPriority().toUpperCase()));
 
         Complaint savedComplaint = complaintRepository.save(complaint);
 
         if (files != null && files.length > 0) {
             for (MultipartFile file : files) {
                 if (!file.isEmpty()) {
-                    String imageUrl = fileStorageService.saveImage(file);
+                    // Upload to Cloudinary using our new Record
+                    FileStorageService.CloudUploadResult uploadResult = fileStorageService.uploadFile(file);
+                    
                     ComplaintImage image = new ComplaintImage();
-                    image.setImageUrl(imageUrl);
+                    image.setImageUrl(uploadResult.url()); // The public viewing link
+                    image.setCloudId(uploadResult.cloudId()); // The private deletion ID
                     image.setComplaint(savedComplaint);
+                    
                     imageRepository.save(image);
                     savedComplaint.getImages().add(image);
                 }
@@ -54,7 +60,9 @@ public class ComplaintService {
         Complaint complaint = getComplaintById(complaintId);
         complaint.setAdminId(adminId);
         complaint.setDispatcherId(dispatcherId);
-        complaint.setStatus("IN_PROGRESS");
+        
+        // Swapped the raw String for the type-safe Enum
+        complaint.setStatus(Complaint.Status.IN_PROGRESS); 
         return complaintRepository.save(complaint);
     }
 
@@ -62,7 +70,9 @@ public class ComplaintService {
     public Complaint submitForVerification(Long complaintId, String adminNote) {
         Complaint complaint = getComplaintById(complaintId);
         complaint.setAdminNote(adminNote);
-        complaint.setStatus("VERIFICATION_PENDING");
+        
+        // Swapped the raw String for the type-safe Enum
+        complaint.setStatus(Complaint.Status.VERIFICATION_PENDING);
         return complaintRepository.save(complaint);
     }
 
@@ -71,14 +81,16 @@ public class ComplaintService {
         Complaint complaint = getComplaintById(complaintId);
         complaint.setHodId(hodId);
         complaint.setHodNote(hodNote);
-        complaint.setStatus("RESOLVED");
+        
+        // Swapped the raw String for the type-safe Enum
+        complaint.setStatus(Complaint.Status.RESOLVED);
         return complaintRepository.save(complaint);
     }
 
     @Transactional
     public Complaint toggleVisibility(Long complaintId, boolean isPublic) {
         Complaint complaint = getComplaintById(complaintId);
-        complaint.setPublic(isPublic); // Corrected from setIsPublic to setPublic
+        complaint.setPublic(isPublic); 
         return complaintRepository.save(complaint);
     }
 
@@ -90,6 +102,7 @@ public class ComplaintService {
     public List<Complaint> getPublicFeed() {
         return complaintRepository.findByIsPublicTrue();
     }
+    
     // ADMIN: Get all complaints in the system
     public List<Complaint> getAllComplaints() {
         return complaintRepository.findAll();
