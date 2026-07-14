@@ -23,7 +23,7 @@ public class ComplaintController {
 
     // 1. STUDENT: Submit a new complaint
     @PostMapping(consumes = {"multipart/form-data"})
-    @PreAuthorize("hasRole('STUDENT')") // Locks endpoint to Students only
+    @PreAuthorize("hasAuthority('ROLE_STUDENT')") // Fix: Explicitly check for ROLE_ prefix
     public ResponseEntity<Complaint> createComplaint(
             @RequestPart("data") String data, 
             @RequestPart(value = "files", required = false) MultipartFile[] files) throws IOException {
@@ -37,7 +37,7 @@ public class ComplaintController {
 
     // 2. ADMIN: Assign to a technician
     @PutMapping("/{id}/assign")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')") // Fix: Explicitly check for ROLE_ prefix
     public ResponseEntity<Complaint> assignTechnician(
             @PathVariable Long id,
             @RequestParam Long adminId,
@@ -48,7 +48,7 @@ public class ComplaintController {
 
     // 3. TECHNICIAN: Submit for HOD Verification
     @PutMapping("/{id}/submit-verification")
-    @PreAuthorize("hasRole('TECHNICIAN') or hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_TECHNICIAN') or hasAuthority('ROLE_ADMIN')") // Fix applied to both roles
     public ResponseEntity<Complaint> submitForVerification(
             @PathVariable Long id,
             @RequestParam String adminNote) {
@@ -58,7 +58,7 @@ public class ComplaintController {
 
     // 4. HOD: Final Sign-off and Resolution
     @PutMapping("/{id}/resolve")
-    @PreAuthorize("hasAuthority('SUB_HOD')") // Uses the custom sub-role authority we built in the filter
+    @PreAuthorize("hasAuthority('SUB_HOD')") // This was already correct based on your JwtTokenFilter!
     public ResponseEntity<Complaint> resolveComplaint(
             @PathVariable Long id,
             @RequestParam Long hodId,
@@ -69,7 +69,7 @@ public class ComplaintController {
 
     // 5. ADMIN: Toggle Public Visibility
     @PutMapping("/{id}/visibility")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Complaint> toggleVisibility(
             @PathVariable Long id,
             @RequestParam boolean isPublic) {
@@ -81,7 +81,7 @@ public class ComplaintController {
 
     // Get a specific complaint
     @GetMapping("/{id}")
-    @PreAuthorize("isAuthenticated()") // Anyone logged into the portal can view a specific complaint if they have the link
+    @PreAuthorize("isAuthenticated()") 
     public ResponseEntity<Complaint> getComplaint(@PathVariable Long id) {
         return ResponseEntity.ok(complaintService.getComplaintById(id));
     }
@@ -95,14 +95,14 @@ public class ComplaintController {
 
     // Get a specific user's complaints
     @GetMapping("/user/{userId}")
-    @PreAuthorize("hasRole('STUDENT') or hasRole('ADMIN')")
+    @PreAuthorize("hasAuthority('ROLE_STUDENT') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<List<Complaint>> getMyComplaints(@PathVariable Long userId) {
         return ResponseEntity.ok(complaintService.getMyComplaints(userId));
     }
 
     // ADMIN: Get master list of all complaints
     @GetMapping("/all")
-    @PreAuthorize("hasRole('ADMIN')") // Strictly locked down to central administration
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')") 
     public ResponseEntity<List<Complaint>> getAllComplaints() {
         return ResponseEntity.ok(complaintService.getAllComplaints());
     }
