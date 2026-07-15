@@ -40,8 +40,8 @@ public class ComplaintController {
     @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<Complaint> assignTechnician(
             @PathVariable Long id,
-            @RequestParam Long adminId,
-            @RequestParam Long dispatcherId) {
+            @RequestParam String adminId,
+            @RequestParam String dispatcherId) {
             
         return ResponseEntity.ok(complaintService.assignTechnician(id, adminId, dispatcherId));
     }
@@ -61,7 +61,7 @@ public class ComplaintController {
     @PreAuthorize("hasAuthority('SUB_HOD')")
     public ResponseEntity<Complaint> resolveComplaint(
             @PathVariable Long id,
-            @RequestParam Long hodId,
+            @RequestParam String hodId,
             @RequestParam String hodNote) {
             
         return ResponseEntity.ok(complaintService.resolveComplaint(id, hodId, hodNote));
@@ -79,6 +79,19 @@ public class ComplaintController {
 
     // --- FETCH ENDPOINTS ---
 
+    @GetMapping("/assigned")
+    @PreAuthorize("hasAuthority('ROLE_TECHNICIAN') or hasAuthority('TECHNICIAN')")
+    public ResponseEntity<List<Complaint>> getAssignedComplaints(org.springframework.security.core.Authentication authentication) {
+        String adminId = authentication.getName();
+        return ResponseEntity.ok(complaintService.getAssignedComplaints(adminId));
+    }
+
+    @GetMapping("/pending-approval")
+    @PreAuthorize("hasAuthority('SUB_HOD')")
+    public ResponseEntity<List<Complaint>> getPendingApprovalComplaints() {
+        return ResponseEntity.ok(complaintService.getPendingApprovalComplaints());
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()") 
     public ResponseEntity<Complaint> getComplaint(@PathVariable Long id) {
@@ -92,8 +105,8 @@ public class ComplaintController {
     }
 
     @GetMapping("/user/{userId}")
-    @PreAuthorize("hasAuthority('ROLE_STUDENT') or hasAuthority('ROLE_ADMIN')")
-    public ResponseEntity<List<Complaint>> getMyComplaints(@PathVariable Long userId) {
+    @PreAuthorize("hasAnyAuthority('ROLE_STUDENT', 'ROLE_FACULTY', 'STUDENT', 'FACULTY') or hasAuthority('ROLE_ADMIN')")
+    public ResponseEntity<List<Complaint>> getMyComplaints(@PathVariable String userId) {
         return ResponseEntity.ok(complaintService.getMyComplaints(userId));
     }
 

@@ -22,11 +22,11 @@ public class Complaint {
 
     // Tracking the People involved (Virtual links to Team 1's Auth DB)
     @Column(nullable = false)
-    private Long userId;
+    private String userId;
     
-    private Long dispatcherId; // The central admin who routed it
-    private Long adminId;      // Assigned Technician
-    private Long hodId;        // HOD who verified the fix
+    private String dispatcherId; // The central admin who routed it
+    private String adminId;      // Assigned Technician
+    private String hodId;        // HOD who verified the fix
 
     // Core Complaint Data
     @Column(nullable = false)
