@@ -67,6 +67,9 @@ public class ComplaintService {
         }
         
         Complaint complaint = getComplaintById(complaintId);
+        if ("RESOLVED".equals(complaint.getStatus())) {
+            throw new IllegalArgumentException("Cannot assign technician to an already resolved complaint");
+        }
         complaint.setAdminId(adminId);
         complaint.setDispatcherId(dispatcherId);
         
@@ -78,6 +81,9 @@ public class ComplaintService {
     @Transactional
     public Complaint submitForVerification(Long complaintId, String adminNote) {
         Complaint complaint = getComplaintById(complaintId);
+        if ("RESOLVED".equals(complaint.getStatus())) {
+            throw new IllegalArgumentException("Complaint is already resolved");
+        }
         complaint.setAdminNote(adminNote);
         
         // Swapped the raw String for the type-safe Enum
@@ -88,6 +94,9 @@ public class ComplaintService {
     @Transactional
     public Complaint resolveComplaint(Long complaintId, String hodId, String hodNote) {
         Complaint complaint = getComplaintById(complaintId);
+        if ("RESOLVED".equals(complaint.getStatus())) {
+            throw new IllegalArgumentException("Complaint is already resolved");
+        }
         complaint.setHodId(hodId);
         complaint.setHodNote(hodNote);
         
