@@ -52,6 +52,9 @@ public class ComplaintService {
     @Transactional
     public Complaint assignTechnician(Long complaintId, Long adminId, Long dispatcherId) {
         Complaint complaint = getComplaintById(complaintId);
+        if ("RESOLVED".equals(complaint.getStatus())) {
+            throw new IllegalArgumentException("Cannot assign technician to an already resolved complaint");
+        }
         complaint.setAdminId(adminId);
         complaint.setDispatcherId(dispatcherId);
         complaint.setStatus("IN_PROGRESS");
@@ -61,6 +64,9 @@ public class ComplaintService {
     @Transactional
     public Complaint submitForVerification(Long complaintId, String adminNote) {
         Complaint complaint = getComplaintById(complaintId);
+        if ("RESOLVED".equals(complaint.getStatus())) {
+            throw new IllegalArgumentException("Complaint is already resolved");
+        }
         complaint.setAdminNote(adminNote);
         complaint.setStatus("VERIFICATION_PENDING");
         return complaintRepository.save(complaint);
@@ -69,6 +75,9 @@ public class ComplaintService {
     @Transactional
     public Complaint resolveComplaint(Long complaintId, Long hodId, String hodNote) {
         Complaint complaint = getComplaintById(complaintId);
+        if ("RESOLVED".equals(complaint.getStatus())) {
+            throw new IllegalArgumentException("Complaint is already resolved");
+        }
         complaint.setHodId(hodId);
         complaint.setHodNote(hodNote);
         complaint.setStatus("RESOLVED");
