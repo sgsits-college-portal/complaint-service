@@ -1,7 +1,8 @@
 package com.collegeportal.complaint_service.entity;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -11,7 +12,8 @@ import java.util.List;
 
 @Entity
 @Table(name = "complaints")
-@Data // Lombok automatically creates getters, setters, and constructors
+@Getter
+@Setter
 public class Complaint {
 
     @Id
@@ -20,11 +22,11 @@ public class Complaint {
 
     // Tracking the People involved (Virtual links to Team 1's Auth DB)
     @Column(nullable = false)
-    private Long userId;
+    private String userId;
     
-    private Long dispatcherId; // The central admin who routed it
-    private Long adminId;      // Assigned Technician
-    private Long hodId;        // HOD who verified the fix
+    private String dispatcherId; // The central admin who routed it
+    private String adminId;      // Assigned Technician
+    private String hodId;        // HOD who verified the fix
 
     // Core Complaint Data
     @Column(nullable = false)
@@ -36,8 +38,9 @@ public class Complaint {
     @Column(nullable = false)
     private String category;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String priority; // LOW, MEDIUM, HIGH, CRITICAL
+    private Priority priority = Priority.MEDIUM; 
 
     private String location;
     
@@ -47,8 +50,9 @@ public class Complaint {
     private boolean isPublic = false; // Default is private until Admin approves
 
     // The QA State Machine
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String status = "OPEN"; // OPEN, IN_PROGRESS, VERIFICATION_PENDING, RESOLVED, REJECTED
+    private Status status = Status.OPEN; 
 
     @Column(columnDefinition = "TEXT")
     private String adminNote;
@@ -57,6 +61,7 @@ public class Complaint {
     private String hodNote;
 
     @CreationTimestamp
+    @Column(updatable = false)
     private LocalDateTime createdAt;
 
     @UpdateTimestamp
@@ -65,4 +70,13 @@ public class Complaint {
     // One Complaint can have many Images
     @OneToMany(mappedBy = "complaint", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ComplaintImage> images = new ArrayList<>();
+
+    // --- ENUMS ---
+    public enum Priority {
+        LOW, MEDIUM, HIGH, CRITICAL
+    }
+
+    public enum Status {
+        OPEN, IN_PROGRESS, VERIFICATION_PENDING, RESOLVED, REJECTED
+    }
 }
