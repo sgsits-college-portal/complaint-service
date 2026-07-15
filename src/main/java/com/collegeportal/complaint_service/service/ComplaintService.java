@@ -13,6 +13,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @Service
 @RequiredArgsConstructor
@@ -56,7 +59,13 @@ public class ComplaintService {
     }
 
     @Transactional
-    public Complaint assignTechnician(Long complaintId, Long adminId, Long dispatcherId) {
+    public Complaint assignTechnician(Long complaintId, String adminId, String dispatcherId) {
+        // Validation step to ensure dispatcherId / adminId belongs to a user with the TECHNICIAN role
+        // TODO: In a real microservice, make a Feign client call to Auth Service: authClient.verifyRole(adminId, "TECHNICIAN")
+        if (adminId == null || adminId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Technician ID (adminId) cannot be empty.");
+        }
+        
         Complaint complaint = getComplaintById(complaintId);
         complaint.setAdminId(adminId);
         complaint.setDispatcherId(dispatcherId);
@@ -77,7 +86,7 @@ public class ComplaintService {
     }
 
     @Transactional
-    public Complaint resolveComplaint(Long complaintId, Long hodId, String hodNote) {
+    public Complaint resolveComplaint(Long complaintId, String hodId, String hodNote) {
         Complaint complaint = getComplaintById(complaintId);
         complaint.setHodId(hodId);
         complaint.setHodNote(hodNote);
@@ -95,8 +104,25 @@ public class ComplaintService {
     }
 
     public Complaint getComplaintById(Long id) {
-        return complaintRepository.findById(id)
+        Complaint complaint = complaintRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Complaint not found with id: " + id));
+                
+        if (!complaint.isPublic()) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()) {
+                throw new AccessDeniedException("Access Denied: You must be logged in to view this complaint.");
+            }
+            
+            String currentUsername = authentication.getName(); // This is the enrollmentNumber
+            boolean isAdmin = authentication.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ADMIN"));
+                    
+            if (!isAdmin && !currentUsername.equals(complaint.getUserId())) {
+                throw new AccessDeniedException("Access Denied: You do not have permission to view this private ticket.");
+            }
+        }
+        
+        return complaint;
     }
 
     public List<Complaint> getPublicFeed() {
@@ -108,7 +134,17 @@ public class ComplaintService {
         return complaintRepository.findAll();
     }
 
-    public List<Complaint> getMyComplaints(Long userId) {
+    public List<Complaint> getMyComplaints(String userId) {
         return complaintRepository.findByUserId(userId);
+    }
+    
+    // TECHNICIAN: Get assigned complaints
+    public List<Complaint> getAssignedComplaints(String adminId) {
+        return complaintRepository.findByAdminId(adminId);
+    }
+    
+    // SUB_HOD: Get pending approval complaints
+    public List<Complaint> getPendingApprovalComplaints() {
+        return complaintRepository.findByStatus(Complaint.Status.VERIFICATION_PENDING);
     }
 }
