@@ -21,9 +21,9 @@ public class ComplaintController {
 
     private final ComplaintService complaintService;
 
-    // 1. STUDENT/FACULTY: Submit a new complaint
-    @PostMapping(consumes = {"multipart/form-data"})
-    @PreAuthorize("hasAnyAuthority('ROLE_STUDENT', 'ROLE_FACULTY', 'STUDENT', 'FACULTY')") 
+    // 1. STUDENT: Submit a new complaint
+    @PostMapping(value = {"", "/"}, consumes = {"multipart/form-data"}) // THE FIX: Makes the endpoint slash-agnostic
+    @PreAuthorize("hasAuthority('ROLE_STUDENT')") 
     public ResponseEntity<Complaint> createComplaint(
             @RequestPart("data") String data, 
             @RequestPart(value = "files", required = false) MultipartFile[] files) throws IOException {
