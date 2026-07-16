@@ -34,7 +34,6 @@ public class ComplaintService {
         complaint.setCategory(request.getCategory());
         complaint.setLocation(request.getLocation());
         
-        // Convert the String from the DTO into our strict Java Enum, forcing uppercase to prevent crashes
         complaint.setPriority(Complaint.Priority.valueOf(request.getPriority().toUpperCase()));
 
         Complaint savedComplaint = complaintRepository.save(complaint);
@@ -42,12 +41,11 @@ public class ComplaintService {
         if (files != null && files.length > 0) {
             for (MultipartFile file : files) {
                 if (!file.isEmpty()) {
-                    // Upload to Cloudinary using our new Record
                     FileStorageService.CloudUploadResult uploadResult = fileStorageService.uploadFile(file);
                     
                     ComplaintImage image = new ComplaintImage();
-                    image.setImageUrl(uploadResult.url()); // The public viewing link
-                    image.setCloudId(uploadResult.cloudId()); // The private deletion ID
+                    image.setImageUrl(uploadResult.url());
+                    image.setCloudId(uploadResult.cloudId()); 
                     image.setComplaint(savedComplaint);
                     
                     imageRepository.save(image);
@@ -60,8 +58,6 @@ public class ComplaintService {
 
     @Transactional
     public Complaint assignTechnician(Long complaintId, String adminId, String dispatcherId) {
-        // Validation step to ensure dispatcherId / adminId belongs to a user with the TECHNICIAN role
-        // TODO: In a real microservice, make a Feign client call to Auth Service: authClient.verifyRole(adminId, "TECHNICIAN")
         if (adminId == null || adminId.trim().isEmpty()) {
             throw new IllegalArgumentException("Technician ID (adminId) cannot be empty.");
         }
@@ -70,7 +66,6 @@ public class ComplaintService {
         complaint.setAdminId(adminId);
         complaint.setDispatcherId(dispatcherId);
         
-        // Swapped the raw String for the type-safe Enum
         complaint.setStatus(Complaint.Status.IN_PROGRESS); 
         return complaintRepository.save(complaint);
     }
@@ -78,20 +73,42 @@ public class ComplaintService {
     @Transactional
     public Complaint submitForVerification(Long complaintId, String adminNote) {
         Complaint complaint = getComplaintById(complaintId);
-        complaint.setAdminNote(adminNote);
         
-        // Swapped the raw String for the type-safe Enum
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && !authentication.getName().equals(complaint.getAdminId())) {
+             throw new AccessDeniedException("Access Denied: You can only add notes to complaints explicitly assigned to you.");
+        }
+        
+        complaint.setAdminNote(adminNote);
         complaint.setStatus(Complaint.Status.VERIFICATION_PENDING);
         return complaintRepository.save(complaint);
     }
 
     @Transactional
-    public Complaint resolveComplaint(Long complaintId, String hodId, String hodNote) {
+    public Complaint approveComplaint(Long complaintId, String hodId, String hodNote) {
         Complaint complaint = getComplaintById(complaintId);
         complaint.setHodId(hodId);
         complaint.setHodNote(hodNote);
-        
-        // Swapped the raw String for the type-safe Enum
+        complaint.setStatus(Complaint.Status.IN_PROGRESS); 
+        return complaintRepository.save(complaint);
+    }
+
+    @Transactional
+    public Complaint rejectComplaint(Long complaintId, String hodId, String hodNote) {
+        Complaint complaint = getComplaintById(complaintId);
+        complaint.setHodId(hodId);
+        complaint.setHodNote(hodNote);
+        complaint.setStatus(Complaint.Status.REJECTED); 
+        return complaintRepository.save(complaint);
+    }
+
+    @Transactional
+    public Complaint closeComplaint(Long complaintId) {
+        Complaint complaint = getComplaintById(complaintId);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && !authentication.getName().equals(complaint.getAdminId())) {
+             throw new AccessDeniedException("Access Denied: You can only close complaints explicitly assigned to you.");
+        }
         complaint.setStatus(Complaint.Status.RESOLVED);
         return complaintRepository.save(complaint);
     }
@@ -100,6 +117,13 @@ public class ComplaintService {
     public Complaint toggleVisibility(Long complaintId, boolean isPublic) {
         Complaint complaint = getComplaintById(complaintId);
         complaint.setPublic(isPublic); 
+        return complaintRepository.save(complaint);
+    }
+
+    @Transactional
+    public Complaint upvoteComplaint(Long complaintId) {
+        Complaint complaint = getComplaintById(complaintId);
+        complaint.setUpvoteCount(complaint.getUpvoteCount() + 1);
         return complaintRepository.save(complaint);
     }
 
@@ -113,7 +137,7 @@ public class ComplaintService {
                 throw new AccessDeniedException("Access Denied: You must be logged in to view this complaint.");
             }
             
-            String currentUsername = authentication.getName(); // This is the enrollmentNumber
+            String currentUsername = authentication.getName(); 
             boolean isAdmin = authentication.getAuthorities().stream()
                     .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ADMIN"));
                     
@@ -129,7 +153,6 @@ public class ComplaintService {
         return complaintRepository.findByIsPublicTrue();
     }
     
-    // ADMIN: Get all complaints in the system
     public List<Complaint> getAllComplaints() {
         return complaintRepository.findAll();
     }
@@ -138,12 +161,10 @@ public class ComplaintService {
         return complaintRepository.findByUserId(userId);
     }
     
-    // TECHNICIAN: Get assigned complaints
     public List<Complaint> getAssignedComplaints(String adminId) {
         return complaintRepository.findByAdminId(adminId);
     }
     
-    // SUB_HOD: Get pending approval complaints
     public List<Complaint> getPendingApprovalComplaints() {
         return complaintRepository.findByStatus(Complaint.Status.VERIFICATION_PENDING);
     }
