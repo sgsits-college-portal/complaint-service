@@ -21,9 +21,9 @@ package com.collegeportal.complaint_service.controller;
     
         private final ComplaintService complaintService;
     
-        // 1. STUDENT: Submit a new complaint
+        // 1. STUDENT/FACULTY: Submit a new complaint (Fixed for faculties)
         @PostMapping(value = {"", "/"}, consumes = {"multipart/form-data"}) 
-        @PreAuthorize("hasAuthority('ROLE_STUDENT')") 
+        @PreAuthorize("hasAnyAuthority('ROLE_STUDENT', 'ROLE_FACULTY', 'STUDENT', 'FACULTY')") 
         public ResponseEntity<Complaint> createComplaint(
                 @RequestPart("data") String data, 
                 @RequestPart(value = "files", required = false) MultipartFile[] files) throws IOException {
@@ -46,9 +46,9 @@ package com.collegeportal.complaint_service.controller;
             return ResponseEntity.ok(complaintService.assignTechnician(id, adminId, dispatcherId));
         }
     
-        // 3. TECHNICIAN: Submit for HOD Verification
+        // 3. TECHNICIAN: Submit for HOD Verification (Fixed Authority)
         @PutMapping("/{id}/submit-verification")
-        @PreAuthorize("hasAuthority('ROLE_TECHNICIAN') or hasAuthority('ROLE_ADMIN')")
+        @PreAuthorize("hasAuthority('SUB_TECHNICIAN')")
         public ResponseEntity<Complaint> submitForVerification(
                 @PathVariable Long id,
                 @RequestParam String adminNote) {
@@ -56,18 +56,36 @@ package com.collegeportal.complaint_service.controller;
             return ResponseEntity.ok(complaintService.submitForVerification(id, adminNote));
         }
     
-        // 4. HOD: Final Sign-off and Resolution
-        @PutMapping("/{id}/resolve")
-        @PreAuthorize("hasAuthority('SUB_HOD')")
-        public ResponseEntity<Complaint> resolveComplaint(
+        // 4. HOD: Approve Complaint (Send back to technician)
+        @PutMapping("/{id}/approve")
+        @PreAuthorize("hasAuthority('SUB_HEAD_OF_DEPT')")
+        public ResponseEntity<Complaint> approveComplaint(
                 @PathVariable Long id,
                 @RequestParam String hodId,
                 @RequestParam String hodNote) {
                 
-            return ResponseEntity.ok(complaintService.resolveComplaint(id, hodId, hodNote));
+            return ResponseEntity.ok(complaintService.approveComplaint(id, hodId, hodNote));
         }
     
-        // 5. ADMIN: Toggle Public Visibility
+        // 5. HOD: Reject Complaint
+        @PutMapping("/{id}/reject")
+        @PreAuthorize("hasAuthority('SUB_HEAD_OF_DEPT')")
+        public ResponseEntity<Complaint> rejectComplaint(
+                @PathVariable Long id,
+                @RequestParam String hodId,
+                @RequestParam String hodNote) {
+                
+            return ResponseEntity.ok(complaintService.rejectComplaint(id, hodId, hodNote));
+        }
+    
+        // 6. TECHNICIAN: Close Complaint (Final Resolution)
+        @PutMapping("/{id}/close")
+        @PreAuthorize("hasAuthority('SUB_TECHNICIAN')")
+        public ResponseEntity<Complaint> closeComplaint(@PathVariable Long id) {
+            return ResponseEntity.ok(complaintService.closeComplaint(id));
+        }
+    
+        // 7. ADMIN: Toggle Public Visibility
         @PutMapping("/{id}/visibility")
         @PreAuthorize("hasAuthority('ROLE_ADMIN')")
         public ResponseEntity<Complaint> toggleVisibility(
@@ -77,7 +95,7 @@ package com.collegeportal.complaint_service.controller;
             return ResponseEntity.ok(complaintService.toggleVisibility(id, isPublic));
         }
     
-        // 6. ANY USER: Upvote a Complaint
+        // 8. ANY USER: Upvote a Complaint
         @PutMapping("/{id}/upvote")
         @PreAuthorize("isAuthenticated()")
         public ResponseEntity<Complaint> upvoteComplaint(@PathVariable Long id) {
@@ -87,14 +105,14 @@ package com.collegeportal.complaint_service.controller;
         // --- FETCH ENDPOINTS ---
     
         @GetMapping("/assigned")
-        @PreAuthorize("hasAuthority('ROLE_TECHNICIAN') or hasAuthority('TECHNICIAN')")
+        @PreAuthorize("hasAuthority('SUB_TECHNICIAN')")
         public ResponseEntity<List<Complaint>> getAssignedComplaints(org.springframework.security.core.Authentication authentication) {
             String adminId = authentication.getName();
             return ResponseEntity.ok(complaintService.getAssignedComplaints(adminId));
         }
     
         @GetMapping("/pending-approval")
-        @PreAuthorize("hasAuthority('SUB_HOD')")
+        @PreAuthorize("hasAuthority('SUB_HEAD_OF_DEPT')")
         public ResponseEntity<List<Complaint>> getPendingApprovalComplaints() {
             return ResponseEntity.ok(complaintService.getPendingApprovalComplaints());
         }
