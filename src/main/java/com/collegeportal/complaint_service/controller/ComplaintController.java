@@ -48,7 +48,7 @@ public class ComplaintController {
 
     // 3. TECHNICIAN: Submit for HOD Verification (Fixed Authority)
     @PutMapping("/{id}/submit-verification")
-    @PreAuthorize("hasAuthority('SUB_TECHNICIAN') or hasAuthority('ROLE_TECHNICIAN') or hasAuthority('ROLE_STAFF')")
+    @PreAuthorize("hasAnyAuthority('SUB_TECHNICIAN', 'ROLE_TECHNICIAN', 'ROLE_STAFF', 'TECHNICIAN')")
     public ResponseEntity<Complaint> submitForVerification(
             @PathVariable Long id,
             @RequestParam String adminNote) {
@@ -58,7 +58,7 @@ public class ComplaintController {
 
     // 4. HOD: Approve Complaint (Send back to technician)
     @PutMapping("/{id}/approve")
-    @PreAuthorize("hasAuthority('SUB_HEAD_OF_DEPT') or hasAuthority('SUB_HEAD') or hasAuthority('ROLE_HEAD') or hasAuthority('ROLE_HOD')")
+    @PreAuthorize("hasAnyAuthority('SUB_HEAD_OF_DEPT', 'SUB_HEAD', 'ROLE_HEAD', 'ROLE_HOD', 'ROLE_FACULTY', 'SUB_HOD')")
     public ResponseEntity<Complaint> approveComplaint(
             @PathVariable Long id,
             @RequestParam String hodId,
@@ -69,7 +69,7 @@ public class ComplaintController {
 
     // 5. HOD: Reject Complaint
     @PutMapping("/{id}/reject")
-    @PreAuthorize("hasAuthority('SUB_HEAD_OF_DEPT') or hasAuthority('SUB_HEAD') or hasAuthority('ROLE_HEAD') or hasAuthority('ROLE_HOD')")
+    @PreAuthorize("hasAnyAuthority('SUB_HEAD_OF_DEPT', 'SUB_HEAD', 'ROLE_HEAD', 'ROLE_HOD', 'ROLE_FACULTY', 'SUB_HOD')")
     public ResponseEntity<Complaint> rejectComplaint(
             @PathVariable Long id,
             @RequestParam String hodId,
@@ -80,7 +80,7 @@ public class ComplaintController {
 
     // 6. TECHNICIAN: Close Complaint (Final Resolution)
     @PutMapping("/{id}/close")
-    @PreAuthorize("hasAuthority('SUB_TECHNICIAN') or hasAuthority('ROLE_TECHNICIAN') or hasAuthority('ROLE_STAFF')")
+    @PreAuthorize("hasAnyAuthority('SUB_TECHNICIAN', 'ROLE_TECHNICIAN', 'ROLE_STAFF', 'TECHNICIAN')")
     public ResponseEntity<Complaint> closeComplaint(@PathVariable Long id) {
         return ResponseEntity.ok(complaintService.closeComplaint(id));
     }
@@ -105,14 +105,14 @@ public class ComplaintController {
     // --- FETCH ENDPOINTS ---
 
     @GetMapping("/assigned")
-    @PreAuthorize("hasAuthority('SUB_TECHNICIAN') or hasAuthority('ROLE_TECHNICIAN') or hasAuthority('ROLE_STAFF')")
+    @PreAuthorize("hasAnyAuthority('SUB_TECHNICIAN', 'ROLE_TECHNICIAN', 'ROLE_STAFF', 'TECHNICIAN')")
     public ResponseEntity<List<Complaint>> getAssignedComplaints(org.springframework.security.core.Authentication authentication) {
         String adminId = authentication.getName();
         return ResponseEntity.ok(complaintService.getAssignedComplaints(adminId));
     }
 
     @GetMapping("/pending-approval")
-    @PreAuthorize("hasAuthority('SUB_HEAD_OF_DEPT') or hasAuthority('SUB_HEAD') or hasAuthority('ROLE_HEAD') or hasAuthority('ROLE_HOD')")
+    @PreAuthorize("hasAnyAuthority('SUB_HEAD_OF_DEPT', 'SUB_HEAD', 'ROLE_HEAD', 'ROLE_HOD', 'ROLE_FACULTY', 'SUB_HOD')")
     public ResponseEntity<List<Complaint>> getPendingApprovalComplaints() {
         return ResponseEntity.ok(complaintService.getPendingApprovalComplaints());
     }
