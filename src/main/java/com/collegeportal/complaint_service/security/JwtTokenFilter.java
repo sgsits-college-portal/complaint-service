@@ -53,6 +53,9 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             String username = claims.getSubject();
             String role = claims.get("role", String.class);
             String subRole = claims.get("subRole", String.class);
+            if (subRole == null) {
+                subRole = claims.get("sub_role", String.class);
+            }
 
             List<SimpleGrantedAuthority> authorities = new ArrayList<>();
             if (role != null) {
