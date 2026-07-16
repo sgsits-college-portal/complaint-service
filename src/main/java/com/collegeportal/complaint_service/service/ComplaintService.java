@@ -140,8 +140,10 @@ public class ComplaintService {
             String currentUsername = authentication.getName(); 
             boolean isAdmin = authentication.getAuthorities().stream()
                     .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ADMIN"));
+            boolean isStaffOrHod = authentication.getAuthorities().stream()
+                    .anyMatch(a -> a.getAuthority().contains("TECHNICIAN") || a.getAuthority().contains("HEAD") || a.getAuthority().contains("HOD"));
                     
-            if (!isAdmin && !currentUsername.equals(complaint.getUserId())) {
+            if (!isAdmin && !isStaffOrHod && !currentUsername.equals(complaint.getUserId())) {
                 throw new AccessDeniedException("Access Denied: You do not have permission to view this private ticket.");
             }
         }
