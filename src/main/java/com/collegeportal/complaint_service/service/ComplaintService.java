@@ -1,101 +1,132 @@
 package com.collegeportal.complaint_service.service;
 
-import com.collegeportal.complaint_service.dto.ComplaintRequestDTO;
-import com.collegeportal.complaint_service.entity.Complaint;
-import com.collegeportal.complaint_service.entity.ComplaintImage;
-import com.collegeportal.complaint_service.repository.ComplaintImageRepository;
+import com.collegeportal.complaint_service.domain.Complaint;
+import com.collegeportal.complaint_service.domain.ComplaintCategory;
+import com.collegeportal.complaint_service.domain.ComplaintPriority;
+import com.collegeportal.complaint_service.domain.ComplaintStatus;
+import com.collegeportal.complaint_service.dto.ComplaintDtos.AssignComplaintRequest;
+import com.collegeportal.complaint_service.dto.ComplaintDtos.RaiseComplaintRequest;
+import com.collegeportal.complaint_service.dto.ComplaintDtos.ReopenComplaintRequest;
+import com.collegeportal.complaint_service.dto.ComplaintDtos.ResolveComplaintRequest;
+import com.collegeportal.complaint_service.dto.ComplaintDtos.UpdateComplaintRequest;
 import com.collegeportal.complaint_service.repository.ComplaintRepository;
-import jakarta.persistence.EntityNotFoundException;
-import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.io.IOException;
+import java.time.Instant;
 import java.util.List;
 
 @Service
-@RequiredArgsConstructor
 public class ComplaintService {
 
     private final ComplaintRepository complaintRepository;
-    private final ComplaintImageRepository imageRepository;
-    private final FileStorageService fileStorageService;
 
-    @Transactional
-    public Complaint createComplaint(ComplaintRequestDTO request, MultipartFile[] files) throws IOException {
+    public ComplaintService(ComplaintRepository complaintRepository) {
+        this.complaintRepository = complaintRepository;
+    }
+
+    public Complaint raise(RaiseComplaintRequest request) {
         Complaint complaint = new Complaint();
-        complaint.setUserId(request.getUserId());
-        complaint.setTitle(request.getTitle());
-        complaint.setDescription(request.getDescription());
-        complaint.setCategory(request.getCategory());
-        complaint.setPriority(request.getPriority());
-        complaint.setLocation(request.getLocation());
-
-        Complaint savedComplaint = complaintRepository.save(complaint);
-
-        if (files != null && files.length > 0) {
-            for (MultipartFile file : files) {
-                if (!file.isEmpty()) {
-                    String imageUrl = fileStorageService.saveImage(file);
-                    ComplaintImage image = new ComplaintImage();
-                    image.setImageUrl(imageUrl);
-                    image.setComplaint(savedComplaint);
-                    imageRepository.save(image);
-                    savedComplaint.getImages().add(image);
-                }
-            }
-        }
-        return savedComplaint;
-    }
-
-    @Transactional
-    public Complaint assignTechnician(Long complaintId, Long adminId, Long dispatcherId) {
-        Complaint complaint = getComplaintById(complaintId);
-        complaint.setAdminId(adminId);
-        complaint.setDispatcherId(dispatcherId);
-        complaint.setStatus("IN_PROGRESS");
+        complaint.setUserId(request.userId());
+        complaint.setTitle(request.title());
+        complaint.setDescription(request.description());
+        complaint.setCategory(request.category());
+        complaint.setPriority(request.priority());
+        complaint.setAttachmentUrl(request.attachmentUrl());
+        complaint.setRaisedByRole(request.raisedByRole() != null ? request.raisedByRole().toUpperCase() : "STUDENT");
         return complaintRepository.save(complaint);
     }
 
-    @Transactional
-    public Complaint submitForVerification(Long complaintId, String adminNote) {
-        Complaint complaint = getComplaintById(complaintId);
-        complaint.setAdminNote(adminNote);
-        complaint.setStatus("VERIFICATION_PENDING");
-        return complaintRepository.save(complaint);
-    }
-
-    @Transactional
-    public Complaint resolveComplaint(Long complaintId, Long hodId, String hodNote) {
-        Complaint complaint = getComplaintById(complaintId);
-        complaint.setHodId(hodId);
-        complaint.setHodNote(hodNote);
-        complaint.setStatus("RESOLVED");
-        return complaintRepository.save(complaint);
-    }
-
-    @Transactional
-    public Complaint toggleVisibility(Long complaintId, boolean isPublic) {
-        Complaint complaint = getComplaintById(complaintId);
-        complaint.setPublic(isPublic); // Corrected from setIsPublic to setPublic
-        return complaintRepository.save(complaint);
-    }
-
-    public Complaint getComplaintById(Long id) {
-        return complaintRepository.findById(id)
-                .orElseThrow(() -> new EntityNotFoundException("Complaint not found with id: " + id));
-    }
-
-    public List<Complaint> getPublicFeed() {
-        return complaintRepository.findByIsPublicTrue();
-    }
-    // ADMIN: Get all complaints in the system
-    public List<Complaint> getAllComplaints() {
+    public List<Complaint> all() {
         return complaintRepository.findAll();
     }
 
-    public List<Complaint> getMyComplaints(Long userId) {
-        return complaintRepository.findByUserId(userId);
+    public Complaint byId(Long id) {
+        return findById(id);
+    }
+
+    public List<Complaint> byUser(Long userId) {
+        return complaintRepository.findByUserIdOrderByCreatedAtDesc(userId);
+    }
+
+    public List<Complaint> byCategory(ComplaintCategory category) {
+        return complaintRepository.findByCategoryOrderByCreatedAtDesc(category);
+    }
+
+    public List<Complaint> byStatus(ComplaintStatus status) {
+        return complaintRepository.findByStatusOrderByCreatedAtDesc(status);
+    }
+
+    public List<Complaint> byPriority(ComplaintPriority priority) {
+        return complaintRepository.findByPriorityOrderByCreatedAtDesc(priority);
+    }
+
+    public List<Complaint> byAssignee(Long assignedTo) {
+        return complaintRepository.findByAssignedToOrderByCreatedAtDesc(assignedTo);
+    }
+
+    public Complaint update(Long id, UpdateComplaintRequest request) {
+        Complaint complaint = findById(id);
+        complaint.setStatus(request.status());
+        complaint.setResolution(request.resolution());
+        if (request.status() == ComplaintStatus.RESOLVED) {
+            complaint.setResolvedAt(Instant.now());
+        }
+        return complaintRepository.save(complaint);
+    }
+
+    public Complaint assign(Long id, AssignComplaintRequest request) {
+        Complaint complaint = findById(id);
+        complaint.setAssignedTo(request.assignedTo());
+        complaint.setStatus(ComplaintStatus.ASSIGNED);
+        return complaintRepository.save(complaint);
+    }
+
+    public Complaint progress(Long id) {
+        Complaint complaint = findById(id);
+        if (complaint.getAssignedTo() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Assign complaint before marking in progress");
+        }
+        complaint.setStatus(ComplaintStatus.IN_PROGRESS);
+        return complaintRepository.save(complaint);
+    }
+
+    public Complaint resolve(Long id, ResolveComplaintRequest request) {
+        Complaint complaint = findById(id);
+        complaint.setStatus(ComplaintStatus.RESOLVED);
+        complaint.setResolution(request.resolution());
+        complaint.setResolvedAt(Instant.now());
+        return complaintRepository.save(complaint);
+    }
+
+    public Complaint close(Long id) {
+        Complaint complaint = findById(id);
+        if (complaint.getStatus() != ComplaintStatus.RESOLVED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only resolved complaints can be closed");
+        }
+        complaint.setStatus(ComplaintStatus.CLOSED);
+        return complaintRepository.save(complaint);
+    }
+
+    public Complaint reopen(Long id, ReopenComplaintRequest request) {
+        Complaint complaint = findById(id);
+        if (complaint.getStatus() != ComplaintStatus.RESOLVED && complaint.getStatus() != ComplaintStatus.CLOSED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only resolved or closed complaints can be reopened");
+        }
+        complaint.setStatus(ComplaintStatus.REOPENED);
+        // Preserve the original resolution text; store the reopen reason separately
+        complaint.setReopenReason(request.reason());
+        complaint.setResolvedAt(null);
+        return complaintRepository.save(complaint);
+    }
+
+    public void delete(Long id) {
+        complaintRepository.deleteById(id);
+    }
+
+    private Complaint findById(Long id) {
+        return complaintRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Complaint not found"));
     }
 }

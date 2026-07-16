@@ -1,99 +1,123 @@
 package com.collegeportal.complaint_service.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.collegeportal.complaint_service.dto.ComplaintRequestDTO;
-import com.collegeportal.complaint_service.entity.Complaint;
+import com.collegeportal.complaint_service.domain.Complaint;
+import com.collegeportal.complaint_service.domain.ComplaintCategory;
+import com.collegeportal.complaint_service.domain.ComplaintPriority;
+import com.collegeportal.complaint_service.domain.ComplaintStatus;
+import com.collegeportal.complaint_service.dto.ComplaintDtos.AssignComplaintRequest;
+import com.collegeportal.complaint_service.dto.ComplaintDtos.RaiseComplaintRequest;
+import com.collegeportal.complaint_service.dto.ComplaintDtos.ReopenComplaintRequest;
+import com.collegeportal.complaint_service.dto.ComplaintDtos.ResolveComplaintRequest;
+import com.collegeportal.complaint_service.dto.ComplaintDtos.UpdateComplaintRequest;
 import com.collegeportal.complaint_service.service.ComplaintService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/complaints")
-@RequiredArgsConstructor
 public class ComplaintController {
 
     private final ComplaintService complaintService;
 
-    // 1. STUDENT: Submit a new complaint
-    @PostMapping(consumes = {"multipart/form-data"})
-    public ResponseEntity<Complaint> createComplaint(
-            @RequestPart("data") String data, 
-            @RequestPart(value = "files", required = false) MultipartFile[] files) throws IOException {
-        
-        // Convert the raw string back into your DTO
-        ObjectMapper mapper = new ObjectMapper();
-        ComplaintRequestDTO request = mapper.readValue(data, ComplaintRequestDTO.class);
-
-        Complaint newComplaint = complaintService.createComplaint(request, files);
-        return new ResponseEntity<>(newComplaint, HttpStatus.CREATED);
+    public ComplaintController(ComplaintService complaintService) {
+        this.complaintService = complaintService;
     }
 
-    // 2. ADMIN: Assign to a technician
-    @PutMapping("/{id}/assign")
-    public ResponseEntity<Complaint> assignTechnician(
-            @PathVariable Long id,
-            @RequestParam Long adminId,
-            @RequestParam Long dispatcherId) {
-            
-        return ResponseEntity.ok(complaintService.assignTechnician(id, adminId, dispatcherId));
+    // Slash-agnostic: accepts both /api/complaint and /api/complaint/
+    // Students, teachers, and admins can all raise complaints
+    @PostMapping(value = {"/raise", "/raise/"})
+    @PreAuthorize("hasAuthority('ROLE_STUDENT') or hasAuthority('ROLE_FACULTY') or hasAuthority('ROLE_ADMIN')")
+    public Complaint raise(@Valid @RequestBody RaiseComplaintRequest request) {
+        return complaintService.raise(request);
     }
 
-    // 3. TECHNICIAN: Submit for HOD Verification
-    @PutMapping("/{id}/submit-verification")
-    public ResponseEntity<Complaint> submitForVerification(
-            @PathVariable Long id,
-            @RequestParam String adminNote) {
-            
-        return ResponseEntity.ok(complaintService.submitForVerification(id, adminNote));
+    // Admin / staff can list all complaints
+    @GetMapping(value = {"", "/"})
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_STAFF')")
+    public List<Complaint> all() {
+        return complaintService.all();
     }
 
-    // 4. HOD: Final Sign-off and Resolution
-    @PutMapping("/{id}/resolve")
-    public ResponseEntity<Complaint> resolveComplaint(
-            @PathVariable Long id,
-            @RequestParam Long hodId,
-            @RequestParam String hodNote) {
-            
-        return ResponseEntity.ok(complaintService.resolveComplaint(id, hodId, hodNote));
+    @GetMapping(value = {"/{id}", "/{id}/"})
+    @PreAuthorize("isAuthenticated()")
+    public Complaint byId(@PathVariable Long id) {
+        return complaintService.byId(id);
     }
 
-    // 5. ADMIN: Toggle Public Visibility
-    @PutMapping("/{id}/visibility")
-    public ResponseEntity<Complaint> toggleVisibility(
-            @PathVariable Long id,
-            @RequestParam boolean isPublic) {
-            
-        return ResponseEntity.ok(complaintService.toggleVisibility(id, isPublic));
+    // Any authenticated user can fetch their own complaints
+    @GetMapping(value = {"/user/{userId}", "/user/{userId}/"})
+    @PreAuthorize("isAuthenticated()")
+    public List<Complaint> byUser(@PathVariable Long userId) {
+        return complaintService.byUser(userId);
     }
 
-    // --- FETCH ENDPOINTS ---
-
-    // Get a specific complaint
-    @GetMapping("/{id}")
-    public ResponseEntity<Complaint> getComplaint(@PathVariable Long id) {
-        return ResponseEntity.ok(complaintService.getComplaintById(id));
+    @GetMapping(value = {"/category/{category}", "/category/{category}/"})
+    @PreAuthorize("isAuthenticated()")
+    public List<Complaint> byCategory(@PathVariable ComplaintCategory category) {
+        return complaintService.byCategory(category);
     }
 
-    // Get global public feed
-    @GetMapping("/public")
-    public ResponseEntity<List<Complaint>> getPublicFeed() {
-        return ResponseEntity.ok(complaintService.getPublicFeed());
+    @GetMapping(value = {"/status/{status}", "/status/{status}/"})
+    @PreAuthorize("isAuthenticated()")
+    public List<Complaint> byStatus(@PathVariable ComplaintStatus status) {
+        return complaintService.byStatus(status);
     }
 
-    // Get a specific user's complaints
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Complaint>> getMyComplaints(@PathVariable Long userId) {
-        return ResponseEntity.ok(complaintService.getMyComplaints(userId));
+    @GetMapping(value = {"/priority/{priority}", "/priority/{priority}/"})
+    @PreAuthorize("isAuthenticated()")
+    public List<Complaint> byPriority(@PathVariable ComplaintPriority priority) {
+        return complaintService.byPriority(priority);
     }
-    // ADMIN: Get master list of all complaints
-    @GetMapping("/all")
-    public ResponseEntity<List<Complaint>> getAllComplaints() {
-        return ResponseEntity.ok(complaintService.getAllComplaints());
+
+    @GetMapping(value = {"/assigned/{assignedTo}", "/assigned/{assignedTo}/"})
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_STAFF')")
+    public List<Complaint> byAssignee(@PathVariable Long assignedTo) {
+        return complaintService.byAssignee(assignedTo);
+    }
+
+    // Status updates are admin/staff only
+    @PutMapping(value = {"/update/{id}", "/update/{id}/"})
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_STAFF')")
+    public Complaint update(@PathVariable Long id, @Valid @RequestBody UpdateComplaintRequest request) {
+        return complaintService.update(id, request);
+    }
+
+    @PutMapping(value = {"/{id}/assign", "/{id}/assign/"})
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('SUB_HOD')")
+    public Complaint assign(@PathVariable Long id, @Valid @RequestBody AssignComplaintRequest request) {
+        return complaintService.assign(id, request);
+    }
+
+    @PutMapping(value = {"/{id}/progress", "/{id}/progress/"})
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_STAFF')")
+    public Complaint progress(@PathVariable Long id) {
+        return complaintService.progress(id);
+    }
+
+    @PutMapping(value = {"/{id}/resolve", "/{id}/resolve/"})
+    @PreAuthorize("hasAuthority('ROLE_ADMIN') or hasAuthority('ROLE_STAFF')")
+    public Complaint resolve(@PathVariable Long id, @Valid @RequestBody ResolveComplaintRequest request) {
+        return complaintService.resolve(id, request);
+    }
+
+    @PutMapping(value = {"/{id}/close", "/{id}/close/"})
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public Complaint close(@PathVariable Long id) {
+        return complaintService.close(id);
+    }
+
+    @PutMapping(value = {"/{id}/reopen", "/{id}/reopen/"})
+    @PreAuthorize("hasAuthority('ROLE_STUDENT') or hasAuthority('ROLE_FACULTY') or hasAuthority('ROLE_ADMIN')")
+    public Complaint reopen(@PathVariable Long id, @RequestBody ReopenComplaintRequest request) {
+        return complaintService.reopen(id, request);
+    }
+
+    @DeleteMapping(value = {"/{id}", "/{id}/"})
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public void delete(@PathVariable Long id) {
+        complaintService.delete(id);
     }
 }

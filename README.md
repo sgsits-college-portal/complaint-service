@@ -1,43 +1,234 @@
-# complaint-service
-Complaint management microservice
-To provide you with a clean and professional README.md, I have structured it to be "deployment-ready."Important: I have used the environment variable syntax (${DB_URL}, etc.) in the file below. Do not paste your actual password into this file. When you deploy to Render or Railway, they will securely handle these variables for you.README.mdBackend Service API - Complaint Management SystemThis repository contains the backend microservice responsible for the complaint management lifecycle. It is built for scalability and is designed to integrate seamlessly into a microservices architecture.OverviewThe system provides a robust API for users to submit complaints, attach supporting documentation, and track the status of their issues. The system features a centralized cloud-hosted MySQL database to ensure data persistence and high availability.Tech StackLanguage: Java 21Framework: Spring Boot 3.xDatabase: MySQL 8.4 (Cloud Managed via Aiven)Build Automation: MavenPersistence: Spring Data JPA / HibernateConfiguration & EnvironmentThis project follows the Twelve-Factor App methodology. To ensure security, do not hardcode credentials in your source code. Use the following environment variables:VariableDescriptionDB_URLjdbc:mysql://sgsits-college-portal-db-sgsits-college-portal.e.aivencloud.com:25534/defaultdb?sslMode=REQUIREDDB_USERNAMEavnadminDB_PASSWORDAVNS_CfTyuEc3uqf1HxdWz0CUpdated application.propertiesYour configuration should look like this to support the cloud database:Properties# Server Configuration
-server.port=8082
-spring.application.name=complaint-service
+# Complaint Service
 
-# Secure Database Connection
-spring.datasource.url=${DB_URL}
-spring.datasource.username=${DB_USERNAME}
-spring.datasource.password=${DB_PASSWORD}
+This project implements a Complaint Service using Spring Boot, designed to handle student complaints within a college portal system. It provides RESTful APIs for submitting, managing, and resolving complaints, including file attachments.
 
-# Hibernate Settings
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
+## Table of Contents
 
-# Connection Pool Limit
-spring.datasource.hikari.maximum-pool-size=3
-Getting StartedPrerequisitesJDK 21 or higher.Maven 3.8+.An active Aiven.io account.Local Development SetupClone the Repository:Bashgit clone https://github.com/your-username/complaint-service.git
-cd complaint-service
-Configure Environment Variables:Set the variables in your terminal before running:Bashexport DB_URL='jdbc:mysql://sgsits-college-portal-db-sgsits-college-portal.e.aivencloud.com:25534/defaultdb?sslMode=REQUIRED'
-export DB_USERNAME='avnadmin'
-export DB_PASSWORD='AVNS_CfTyuEc3uqf1HxdWz0C'
-Launch the Application:Bashmvn clean spring-boot:run
-Note for Frontend DevelopersThis backend is currently configured for a direct integration setup.Endpoints:GET /api/complaints/public – Fetch active public tickets.POST /api/complaints – Submit new tickets.Note: Requires multipart/form-data with data (JSON) and files (Image) keys.CORS: Cross-Origin Resource Sharing is enabled for all domains (*) during the development phase.
+1.  [Technologies Used](#technologies-used)
+2.  [Project Structure](#project-structure)
+3.  [Setup and Running the Application](#setup-and-running-the-application)
+4.  [API Endpoints](#api-endpoints)
+    *   [Base URL](#base-url)
+    *   [1. Create a New Complaint (Student)](#1-create-a-new-complaint-student)
+    *   [2. Assign Technician (Admin)](#2-assign-technician-admin)
+    *   [3. Submit for HOD Verification (Technician)](#3-submit-for-hod-verification-technician)
+    *   [4. Final Sign-off and Resolution (HOD)](#4-final-sign-off-and-resolution-hod)
+    *   [5. Toggle Public Visibility (Admin)](#5-toggle-public-visibility-admin)
+    *   [6. Get a Specific Complaint](#6-get-a-specific-complaint)
+    *   [7. Get Global Public Feed](#7-get-global-public-feed)
+    *   [8. Get a Specific User's Complaints](#8-get-a-specific-users-complaints)
+    *   [9. Get Master List of All Complaints (Admin)](#9-get-master-list-of-all-complaints-admin)
+5.  [Project Analysis and Observations](#project-analysis-and-observations)
+    *   [Security](#security)
+    *   [Database Schema Management](#database-schema-management)
+    *   [Logging](#logging)
+    *   [Performance](#performance)
+    *   [Service Discovery](#service-discovery)
+    *   [Error Handling](#error-handling)
 
-# flow of the service
-1. User Perspective  The user’s journey is focused on accessibility, submission, and transparency.  Registration/Login: The user authenticates into the system using their credentials.  Submission: The user selects a category (e.g., maintenance, IT), describes the issue, and attaches any necessary supporting evidence (like images).  Tracking: Upon submission, the user receives a unique ID to monitor the complaint’s status in real-time.  Feedback: Once the issue is marked as resolved, the user can verify the solution and provide feedback on the service quality.  
-2. Admin Perspective  The Admin acts as the central coordinator, ensuring that all grievances are processed and routed correctly.  Review: The Admin monitors the centralized dashboard to view all incoming complaints.  Categorization & Routing: The Admin validates the complaint and forwards it to the relevant HOD or department.  Status Management: As departments report back, the Admin updates the status (e.g., "In Progress," "Resolved").  Notifications: The system sends automated updates to users whenever the status changes, ensuring transparency.  
-3. HOD (Departmental) Perspective  The HOD or department authority focuses on resolution and resource management.  Access: The HOD logs in to view only those complaints specifically assigned to their department.  Action: The HOD or their team performs the necessary investigation or corrective action to resolve the issue.  Reporting: Once resolved, the HOD updates the status or provides a reason to the Admin if there is a delay or if the issue is outside their jurisdiction.  
+## Technologies Used
 
-# frontend requirements of this service 
+*   **Spring Boot:** Framework for building robust, production-ready applications.
+*   **Maven:** Dependency management and build automation tool.
+*   **MySQL:** Relational database for data storage (Aiven Cloud MySQL in `application.properties`).
+*   **JPA/Hibernate:** ORM for database interaction.
+*   **Lombok:** To reduce boilerplate code (e.g., getters, setters, constructors).
+*   **RESTful APIs:** For communication between client and server.
+*   **MultipartFile:** For handling file uploads.
+*   **Jackson (ObjectMapper):** For JSON serialization/deserialization.
 
-1. Core PagesPagePurposeDashboardThe main landing page; shows status summaries for the logged-in user/admin.Submit ComplaintA form-based page to capture user input, category, and file uploads.Complaint FeedA list/table view of complaints with filters (Status, Date, Category).Ticket DetailsA detailed view of a specific complaint (shows conversation history/updates).Login/AuthSimple interface for User, Admin, and HOD roles.
-2. Required UI ComponentsFrontend developers should build these as reusable components to keep the codebase clean.A. Input ComponentsComplaintForm: A complex form component containing:Select dropdown for Category (e.g., Maintenance, IT, Admin).Select dropdown for Priority (Low, Medium, High).FileUploader component with preview capability (for proof images).TextArea for detailed descriptions.SearchBar & FilterBar: Essential for the Admin/HOD pages to sort through tickets by status or department.B. Display ComponentsTicketCard: A component used in the feed. It should show:Title and snippet of description.Status badge (color-coded: Green for Resolved, Yellow for In Progress, Red for Pending).Date submitted.StatusBadge: A small, reusable UI element that maps status text to Tailwind CSS colors (e.g., bg-yellow-100 text-yellow-800 for "Pending").AttachmentViewer: A dedicated component to handle the display of uploaded files, perhaps using a lightbox effect for images.
-3. Detailed Guide for Frontend DevelopersState Management & Data FetchingUse Environment Variables: Never hardcode the API URL. Use NEXT_PUBLIC_API_URL in your .env file to point to http://localhost:8082 (local) or your Render production URL.Handling Form-Data: Since the backend expects multipart/form-data, use the FormData browser API:JavaScriptconst formData = new FormData();
-formData.append("data", JSON.stringify(complaintJsonObject));
-formData.append("files", fileInput.files[0]);
+## Project Structure
 
-await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/complaints`, {
-  method: "POST",
-  body: formData,
-});
-Component Architecture StrategyRole-Based Views: Create a Higher-Order Component (HOC) or a simple wrapper to check userRole before rendering the Admin/HOD pages.Tailwind CSS: Use it for all styling. Create a theme.js or tailwind.config.js file to maintain consistent colors for the status badges across the entire application.Loading States: Because cloud-hosted databases (especially on free tiers) can have "cold starts," ensure every fetch request has a corresponding LoadingSpinner component to keep the UI from appearing frozen.Communication with BackendCORS: The backend is configured to accept requests from any origin (*), but ensure you are properly handling the JSON-plus-file payload structure.Public Feed: For the GET /api/complaints/public endpoint, implement pagination. Even if you have few complaints now, it is best practice to fetch data in chunks rather than loading the entire database at once.
+The project follows a standard layered architecture for Spring Boot applications:
+
+*   `com.collegeportal.complaint_service.controller`: Handles incoming HTTP requests and returns responses.
+*   `com.collegeportal.complaint_service.service`: Contains business logic and orchestrates operations.
+*   `com.collegeportal.complaint_service.repository`: Provides data access operations to the database.
+*   `com.collegeportal.complaint_service.entity`: Defines the database entities (data models).
+*   `com.collegeportal.complaint_service.dto`: Data Transfer Objects for request/response payloads.
+*   `com.collegeportal.complaint_service.config`: Configuration classes for the application.
+*   `ComplaintServiceApplication.java`: The main entry point for the Spring Boot application.
+
+## Setup and Running the Application
+
+1.  **Clone the repository:**
+    ```bash
+    git clone <repository-url>
+    cd complaint-service
+    ```
+2.  **Configure Database:**
+    *   Ensure your MySQL database is running and accessible.
+    *   Update the `src/main/resources/application.properties` file with your database credentials if they differ from the Aiven Cloud MySQL configuration.
+3.  **Build the project:**
+    ```bash
+    mvn clean install
+    ```
+4.  **Run the application:**
+    ```bash
+    mvn spring-boot:run
+    ```
+    The application will start on `http://localhost:8082` by default.
+
+## API Endpoints
+
+This section details the RESTful API endpoints provided by the Complaint Service. You can test these endpoints using tools like Postman.
+
+### Base URL
+
+All endpoints are prefixed with: `http://localhost:8082/api/complaints`
+
+---
+
+### 1. Create a New Complaint (Student)
+
+*   **Method:** `POST`
+*   **URL:** `/api/complaints`
+*   **Description:** Allows a student to submit a new complaint, optionally including file attachments (images, documents, etc.).
+*   **Postman Configuration:**
+    *   **Method:** `POST`
+    *   **URL:** `http://localhost:8082/api/complaints`
+    *   **Body:** Select `form-data`
+        *   **Key:** `data` (Type: `Text`)
+            *   **Value (JSON):**
+                ```json
+                {
+                    "studentId": 1,
+                    "subject": "Leaky Faucet in Dorm Room 305",
+                    "description": "The faucet in my bathroom has been leaking continuously for the past two days. It's wasting water and making noise.",
+                    "category": "Plumbing",
+                    "location": "Dorm Room 305",
+                    "contactInfo": "student1@example.com"
+                }
+                ```
+        *   **Key:** `files` (Type: `File`, `required = false`)
+            *   **Value:** Select one or more image/document files (e.g., `image.jpg`, `report.txt`). You can add multiple `files` keys for multiple files.
+
+---
+
+### 2. Assign Technician (Admin)
+
+*   **Method:** `PUT`
+*   **URL:** `/api/complaints/{id}/assign`
+*   **Description:** An administrator assigns a complaint to a specific technician/dispatcher.
+*   **Path Variable:**
+    *   `id`: The ID of the complaint (e.g., `1`)
+*   **Query Parameters:**
+    *   `adminId`: The ID of the admin performing the assignment (e.g., `101`)
+    *   `dispatcherId`: The ID of the technician/dispatcher to assign (e.g., `201`)
+*   **Postman Example URL:** `http://localhost:8082/api/complaints/1/assign?adminId=101&dispatcherId=201`
+
+---
+
+### 3. Submit for HOD Verification (Technician)
+
+*   **Method:** `PUT`
+*   **URL:** `/api/complaints/{id}/submit-verification`
+*   **Description:** A technician submits a complaint for Head of Department (HOD) verification after initial work.
+*   **Path Variable:**
+    *   `id`: The ID of the complaint (e.g., `1`)
+*   **Query Parameter:**
+    *   `adminNote`: A note from the technician/admin regarding the status (e.g., `"Faucet repaired, awaiting HOD approval."`)
+*   **Postman Example URL:** `http://localhost:8082/api/complaints/1/submit-verification?adminNote=Faucet%20repaired,%20awaiting%20HOD%20approval.`
+
+---
+
+### 4. Final Sign-off and Resolution (HOD)
+
+*   **Method:** `PUT`
+*   **URL:** `/api/complaints/{id}/resolve`
+*   **Description:** The HOD provides final sign-off and resolves the complaint.
+*   **Path Variable:**
+    *   `id`: The ID of the complaint (e.g., `1`)
+*   **Query Parameters:**
+    *   `hodId`: The ID of the HOD (e.g., `301`)
+    *   `hodNote`: A note from the HOD regarding the resolution (e.g., `"Approved resolution. Complaint closed."`)
+*   **Postman Example URL:** `http://localhost:8082/api/complaints/1/resolve?hodId=301&hodNote=Approved%20resolution.%20Complaint%20closed.`
+
+---
+
+### 5. Toggle Public Visibility (Admin)
+
+*   **Method:** `PUT`
+*   **URL:** `/api/complaints/{id}/visibility`
+*   **Description:** An administrator can toggle whether a complaint is publicly visible or not.
+*   **Path Variable:**
+    *   `id`: The ID of the complaint (e.g., `1`)
+*   **Query Parameter:**
+    *   `isPublic`: `true` or `false`
+*   **Postman Example URL:** `http://localhost:8082/api/complaints/1/visibility?isPublic=true`
+
+---
+
+### 6. Get a Specific Complaint
+
+*   **Method:** `GET`
+*   **URL:** `/api/complaints/{id}`
+*   **Description:** Retrieves the detailed information for a single complaint by its ID.
+*   **Path Variable:**
+    *   `id`: The ID of the complaint (e.g., `1`)
+*   **Postman Example URL:** `http://localhost:8082/api/complaints/1`
+
+---
+
+### 7. Get Global Public Feed
+
+*   **Method:** `GET`
+*   **URL:** `/api/complaints/public`
+*   **Description:** Retrieves a list of all complaints that have been marked as publicly visible.
+*   **Postman Example URL:** `http://localhost:8082/api/complaints/public`
+
+---
+
+### 8. Get a Specific User's Complaints
+
+*   **Method:** `GET`
+*   **URL:** `/api/complaints/user/{userId}`
+*   **Description:** Retrieves all complaints submitted by a specific student user.
+*   **Path Variable:**
+    *   `userId`: The ID of the student (e.g., `1`)
+*   **Postman Example URL:** `http://localhost:8082/api/complaints/user/1`
+
+---
+
+### 9. Get Master List of All Complaints (Admin)
+
+*   **Method:** `GET`
+*   **URL:** `/api/complaints/all`
+*   **Description:** Retrieves a comprehensive list of all complaints in the system (typically for administrative use).
+*   **Postman Example URL:** `http://localhost:8082/api/complaints/all`
+
+---
+
+## Project Analysis and Observations
+
+Based on the code review and `application.properties`, here are some observations and potential areas for improvement:
+
+### Security
+
+*   **Hardcoded Database Credentials:** The `spring.datasource.username` and `spring.datasource.password` are directly present in `application.properties`.
+    *   **Recommendation:** For production environments, externalize sensitive credentials using environment variables, a secrets management service (e.g., HashiCorp Vault, AWS Secrets Manager), or Spring Cloud Config. This prevents credentials from being committed to version control.
+
+### Database Schema Management
+
+*   **`spring.jpa.hibernate.ddl-auto=update`**: This setting allows Hibernate to automatically update the database schema based on entity changes.
+    *   **Recommendation:** While convenient for development, `update` can be risky in production as it might lead to unexpected schema changes or data loss. For production, consider using `validate` or `none` and manage schema migrations explicitly with tools like Flyway or Liquibase.
+
+### Logging
+
+*   **`spring.jpa.show-sql=true`**: This enables logging of all SQL statements executed by Hibernate.
+    *   **Recommendation:** This is useful for debugging and development. However, in production, it can generate excessive log volume and potentially expose sensitive data in logs. It should generally be set to `false` in production or configured with a more granular logging level.
+
+### Performance
+
+*   **`spring.datasource.hikari.maximum-pool-size=3`**: The Hikari connection pool size is set to a very low value.
+    *   **Recommendation:** While noted as "Crucial for Cloud Free-Tiers," this can become a significant performance bottleneck under even moderate load. If the service is expected to handle more than a few concurrent requests, this value will likely need to be increased after proper load testing and resource monitoring.
+
+### Service Discovery
+
+*   **Eureka Client Disabled**: `eureka.client.register-with-eureka=false` and `eureka.client.fetch-registry=false` indicate that the service is not participating in Eureka service discovery.
+    *   **Observation:** If this service is intended to be part of a microservices architecture that uses Eureka, these properties should be set to `true`. If it's a standalone service or uses a different discovery mechanism, then the current configuration is appropriate.
+
+### Error Handling
+
+*   **`IOException` in Controller**: The `createComplaint` method in `ComplaintController` directly throws `IOException` (e.g., from `mapper.readValue`).
+    *   **Recommendation:** In a production application, it's better to catch specific exceptions within the controller or service layer and return appropriate HTTP status codes (e.g., `400 Bad Request` for invalid input, `500 Internal Server Error` for unexpected server issues) with a custom error response body, rather than letting the server return a generic 500 error page. Consider implementing a global exception handler using `@ControllerAdvice`.
