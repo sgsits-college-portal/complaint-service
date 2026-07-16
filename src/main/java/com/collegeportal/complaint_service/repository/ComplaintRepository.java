@@ -1,17 +1,24 @@
 package com.collegeportal.complaint_service.repository;
 
-import com.collegeportal.complaint_service.domain.Complaint;
-import com.collegeportal.complaint_service.domain.ComplaintCategory;
-import com.collegeportal.complaint_service.domain.ComplaintPriority;
-import com.collegeportal.complaint_service.domain.ComplaintStatus;
+import com.collegeportal.complaint_service.entity.Complaint;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
+@Repository
 public interface ComplaintRepository extends JpaRepository<Complaint, Long> {
-    List<Complaint> findByUserIdOrderByCreatedAtDesc(Long userId);
-    List<Complaint> findByCategoryOrderByCreatedAtDesc(ComplaintCategory category);
-    List<Complaint> findByStatusOrderByCreatedAtDesc(ComplaintStatus status);
-    List<Complaint> findByPriorityOrderByCreatedAtDesc(ComplaintPriority priority);
-    List<Complaint> findByAssignedToOrderByCreatedAtDesc(Long assignedTo);
+    
+    List<Complaint> findByIsPublicTrue();
+    
+    List<Complaint> findByUserId(String userId);
+    
+    // Updated from String to our strict Enum
+    List<Complaint> findByStatus(Complaint.Status status);
+    
+    // For Technician dashboard
+    List<Complaint> findByAdminIdAndStatus(String adminId, Complaint.Status status);
+    
+    // For Technician dashboard (all assigned)
+    List<Complaint> findByAdminId(String adminId);
 }
