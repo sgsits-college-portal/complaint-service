@@ -1,14 +1,17 @@
 package com.collegeportal.complaint_service.config;
 
-import lombok.Getter;
-import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.stereotype.Component;
 
-@Component
 @ConfigurationProperties(prefix = "file")
-@Getter
-@Setter
 public class FileStorageProperties {
+
     private String uploadDir = "uploads/complaints";
+
+    public String getUploadDir() {
+        return uploadDir;
+    }
+
+    public void setUploadDir(String uploadDir) {
+        this.uploadDir = uploadDir;
+    }
 }
