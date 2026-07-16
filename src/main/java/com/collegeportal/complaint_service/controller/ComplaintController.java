@@ -48,7 +48,7 @@ public class ComplaintController {
 
     // 3. TECHNICIAN: Submit for HOD Verification
     @PutMapping("/{id}/submit-verification")
-    @PreAuthorize("hasAuthority('ROLE_TECHNICIAN') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('SUB_TECHNICIAN', 'ROLE_ADMIN', 'SUB_SUPER_ADMIN', 'SUB_SYSTEM_ADMIN')")
     public ResponseEntity<Complaint> submitForVerification(
             @PathVariable Long id,
             @RequestParam String adminNote) {
@@ -58,7 +58,7 @@ public class ComplaintController {
 
     // 4. HOD: Final Sign-off and Resolution
     @PutMapping("/{id}/resolve")
-    @PreAuthorize("hasAuthority('SUB_HOD')")
+    @PreAuthorize("hasAnyAuthority('ROLE_HOD', 'SUB_HEAD_OF_DEPT', 'SUB_HOD', 'ROLE_ADMIN', 'SUB_SUPER_ADMIN', 'SUB_SYSTEM_ADMIN')")
     public ResponseEntity<Complaint> resolveComplaint(
             @PathVariable Long id,
             @RequestParam String hodId,
@@ -80,14 +80,14 @@ public class ComplaintController {
     // --- FETCH ENDPOINTS ---
 
     @GetMapping("/assigned")
-    @PreAuthorize("hasAuthority('ROLE_TECHNICIAN') or hasAuthority('TECHNICIAN')")
+    @PreAuthorize("hasAnyAuthority('SUB_TECHNICIAN', 'ROLE_ADMIN', 'SUB_SUPER_ADMIN', 'SUB_SYSTEM_ADMIN')")
     public ResponseEntity<List<Complaint>> getAssignedComplaints(org.springframework.security.core.Authentication authentication) {
         String adminId = authentication.getName();
         return ResponseEntity.ok(complaintService.getAssignedComplaints(adminId));
     }
 
     @GetMapping("/pending-approval")
-    @PreAuthorize("hasAuthority('SUB_HOD')")
+    @PreAuthorize("hasAnyAuthority('ROLE_HOD', 'SUB_HEAD_OF_DEPT', 'SUB_HOD', 'ROLE_ADMIN', 'SUB_SUPER_ADMIN', 'SUB_SYSTEM_ADMIN')")
     public ResponseEntity<List<Complaint>> getPendingApprovalComplaints() {
         return ResponseEntity.ok(complaintService.getPendingApprovalComplaints());
     }
