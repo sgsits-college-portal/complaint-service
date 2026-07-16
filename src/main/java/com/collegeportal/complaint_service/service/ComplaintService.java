@@ -141,7 +141,7 @@ public class ComplaintService {
             boolean isAdmin = authentication.getAuthorities().stream()
                     .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ADMIN"));
             boolean isStaffOrHod = authentication.getAuthorities().stream()
-                    .anyMatch(a -> a.getAuthority().contains("TECHNICIAN") || a.getAuthority().contains("HEAD") || a.getAuthority().contains("HOD"));
+                    .anyMatch(a -> a.getAuthority().contains("TECHNICIAN") || a.getAuthority().contains("HEAD") || a.getAuthority().contains("HOD") || a.getAuthority().contains("STAFF"));
                     
             if (!isAdmin && !isStaffOrHod && !currentUsername.equals(complaint.getUserId())) {
                 throw new AccessDeniedException("Access Denied: You do not have permission to view this private ticket.");
