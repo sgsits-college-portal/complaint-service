@@ -1,0 +1,3 @@
+#!/bin/bash
+TOKEN="eyJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiSEVBRCIsImZ1bGxOYW1lIjoiRHIuIFN1bml0YSBWZXJtYSIsInN1Yl9yb2xlIjoiSEVBRCIsImVtYWlsIjoiaGVhZEBzZ3NpdHMuYWMuaW4iLCJzdWIiOiJoZWFkQHNnc2l0cy5hYy5pbiIsImlhdCI6MTc4NDIxMTg0NCwiZXhwIjoxNzg0Mjk4MjQ0fQ"
+curl -s -X GET http://localhost:8081/api/complaints/pending-approval -H "Authorization: Bearer $TOKEN"
