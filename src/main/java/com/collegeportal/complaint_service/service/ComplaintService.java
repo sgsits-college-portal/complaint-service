@@ -1,4 +1,4 @@
- package com.collegeportal.complaint_service.service;
+package com.collegeportal.complaint_service.service;
     
     import com.collegeportal.complaint_service.dto.ComplaintRequestDTO;
     import com.collegeportal.complaint_service.entity.Complaint;
@@ -34,7 +34,6 @@
             complaint.setCategory(request.getCategory());
             complaint.setLocation(request.getLocation());
             
-            // Convert the String from the DTO into our strict Java Enum, forcing uppercase to prevent crashes
             complaint.setPriority(Complaint.Priority.valueOf(request.getPriority().toUpperCase()));
     
             Complaint savedComplaint = complaintRepository.save(complaint);
@@ -42,12 +41,11 @@
             if (files != null && files.length > 0) {
                 for (MultipartFile file : files) {
                     if (!file.isEmpty()) {
-                        // Upload to Cloudinary using our new Record
                         FileStorageService.CloudUploadResult uploadResult = fileStorageService.uploadFile(file);
                         
                         ComplaintImage image = new ComplaintImage();
-                        image.setImageUrl(uploadResult.url()); // The public viewing link
-                        image.setCloudId(uploadResult.cloudId()); // The private deletion ID
+                        image.setImageUrl(uploadResult.url());
+                        image.setCloudId(uploadResult.cloudId()); 
                         image.setComplaint(savedComplaint);
                         
                         imageRepository.save(image);
@@ -75,18 +73,42 @@
         @Transactional
         public Complaint submitForVerification(Long complaintId, String adminNote) {
             Complaint complaint = getComplaintById(complaintId);
-            complaint.setAdminNote(adminNote);
             
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && !authentication.getName().equals(complaint.getAdminId())) {
+                 throw new AccessDeniedException("Access Denied: You can only add notes to complaints explicitly assigned to you.");
+            }
+            
+            complaint.setAdminNote(adminNote);
             complaint.setStatus(Complaint.Status.VERIFICATION_PENDING);
             return complaintRepository.save(complaint);
         }
     
         @Transactional
-        public Complaint resolveComplaint(Long complaintId, String hodId, String hodNote) {
+        public Complaint approveComplaint(Long complaintId, String hodId, String hodNote) {
             Complaint complaint = getComplaintById(complaintId);
             complaint.setHodId(hodId);
             complaint.setHodNote(hodNote);
-            
+            complaint.setStatus(Complaint.Status.IN_PROGRESS); 
+            return complaintRepository.save(complaint);
+        }
+    
+        @Transactional
+        public Complaint rejectComplaint(Long complaintId, String hodId, String hodNote) {
+            Complaint complaint = getComplaintById(complaintId);
+            complaint.setHodId(hodId);
+            complaint.setHodNote(hodNote);
+            complaint.setStatus(Complaint.Status.REJECTED); 
+            return complaintRepository.save(complaint);
+        }
+    
+        @Transactional
+        public Complaint closeComplaint(Long complaintId) {
+            Complaint complaint = getComplaintById(complaintId);
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && !authentication.getName().equals(complaint.getAdminId())) {
+                 throw new AccessDeniedException("Access Denied: You can only close complaints explicitly assigned to you.");
+            }
             complaint.setStatus(Complaint.Status.RESOLVED);
             return complaintRepository.save(complaint);
         }
@@ -98,7 +120,6 @@
             return complaintRepository.save(complaint);
         }
     
-        // --- NEW: Upvote Function ---
         @Transactional
         public Complaint upvoteComplaint(Long complaintId) {
             Complaint complaint = getComplaintById(complaintId);
@@ -109,14 +130,14 @@
         public Complaint getComplaintById(Long id) {
             Complaint complaint = complaintRepository.findById(id)
                     .orElseThrow(() -> new EntityNotFoundException("Complaint not found with id: " + id));
-                    
+
             if (!complaint.isPublic()) {
                 Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
                 if (authentication == null || !authentication.isAuthenticated()) {
                     throw new AccessDeniedException("Access Denied: You must be logged in to view this complaint.");
                 }
                 
-                String currentUsername = authentication.getName(); // This is the enrollmentNumber
+                String currentUsername = authentication.getName(); 
                 boolean isAdmin = authentication.getAuthorities().stream()
                         .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ADMIN"));
 
@@ -132,7 +153,6 @@
             return complaintRepository.findByIsPublicTrue();
         }
         
-        // ADMIN: Get all complaints in the system
         public List<Complaint> getAllComplaints() {
             return complaintRepository.findAll();
         }
@@ -141,12 +161,10 @@
             return complaintRepository.findByUserId(userId);
         }
         
-        // TECHNICIAN: Get assigned complaints
         public List<Complaint> getAssignedComplaints(String adminId) {
             return complaintRepository.findByAdminId(adminId);
         }
         
-        // SUB_HOD: Get pending approval complaints
         public List<Complaint> getPendingApprovalComplaints() {
             return complaintRepository.findByStatus(Complaint.Status.VERIFICATION_PENDING);
         }
