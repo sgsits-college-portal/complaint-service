@@ -23,7 +23,7 @@ public class ComplaintController {
 
     // 1. STUDENT/FACULTY: Submit a new complaint (Fixed for faculties)
     @PostMapping(value = {"", "/"}, consumes = {"multipart/form-data"}) 
-    @PreAuthorize("hasAnyAuthority('ROLE_STUDENT', 'ROLE_FACULTY', 'STUDENT', 'FACULTY')") 
+    @PreAuthorize("hasAnyAuthority('ROLE_STUDENT', 'ROLE_FACULTY', 'STUDENT', 'FACULTY', 'ROLE_HOD', 'ROLE_HEAD', 'SUB_HEAD', 'SUB_HOD', 'SUB_HEAD_OF_DEPT')") 
     public ResponseEntity<Complaint> createComplaint(
             @RequestPart("data") String data, 
             @RequestPart(value = "files", required = false) MultipartFile[] files) throws IOException {
@@ -130,7 +130,7 @@ public class ComplaintController {
     }
 
     @GetMapping("/user/{userId}")
-    @PreAuthorize("hasAnyAuthority('ROLE_STUDENT', 'ROLE_FACULTY', 'STUDENT', 'FACULTY') or hasAuthority('ROLE_ADMIN')")
+    @PreAuthorize("hasAnyAuthority('ROLE_STUDENT', 'ROLE_FACULTY', 'STUDENT', 'FACULTY', 'ROLE_HOD', 'ROLE_HEAD', 'SUB_HEAD', 'SUB_HOD', 'SUB_HEAD_OF_DEPT') or hasAuthority('ROLE_ADMIN')")
     public ResponseEntity<List<Complaint>> getMyComplaints(@PathVariable String userId) {
         return ResponseEntity.ok(complaintService.getMyComplaints(userId));
     }
